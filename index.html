@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FleetPro - Trucking Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Mobile Toggle -->
+    <button class="mobile-toggle" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fas fa-truck"></i>
+                <span>FleetPro</span>
+            </div>
+        </div>
+        <div class="nav-links">
+            <div class="nav-item active" data-section="dashboard">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </div>
+            <div class="nav-item" data-section="operations">
+                <i class="fas fa-road"></i>
+                <span>Operations</span>
+            </div>
+            <div class="nav-item" data-section="vehicles">
+                <i class="fas fa-truck"></i>
+                <span>Vehicles</span>
+            </div>
+            <div class="nav-item" data-section="drivers">
+                <i class="fas fa-user"></i>
+                <span>Drivers</span>
+            </div>
+            <div class="nav-item" data-section="materials">
+                <i class="fas fa-boxes"></i>
+                <span>Materials</span>
+            </div>
+            <div class="nav-item" data-section="routes">
+                <i class="fas fa-route"></i>
+                <span>Routes</span>
+            </div>
+            <div class="nav-item" data-section="expenses">
+                <i class="fas fa-money-bill-wave"></i>
+                <span>Expenses</span>
+            </div>
+            <div class="nav-item" data-section="maintenance">
+                <i class="fas fa-tools"></i>
+                <span>Maintenance</span>
+            </div>
+            <div class="nav-item" data-section="insurance">
+                <i class="fas fa-shield-alt"></i>
+                <span>Insurance</span>
+            </div>
+            <div class="nav-item" data-section="attendance">
+                <i class="fas fa-clipboard-check"></i>
+                <span>Attendance</span>
+            </div>
+            <div class="nav-item" data-section="fuel">
+                <i class="fas fa-gas-pump"></i>
+                <span>Fuel Records</span>
+            </div>
+            <div class="nav-item" data-section="settings">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Topbar -->
+        <div class="topbar">
+            <div class="topbar-title" id="topbarTitle">Dashboard Overview</div>
+            <div class="user-info">
+                <div id="connectionStatus" class="status-badge badge-online">
+                    <i class="fas fa-wifi"></i> Online
+                </div>
+                <div id="syncStatus" class="status-badge badge-online">
+                    <i class="fas fa-sync"></i> Synced
+                </div>
+                <button id="syncBtn" class="btn btn-primary">
+                    <i class="fas fa-sync"></i> Sync Now
+                </button>
+                <div class="user-name">John Trucker</div>
+                <div class="user-avatar">JT</div>
+            </div>
+        </div>
+
+        <!-- Content Sections -->
+        <div class="content">
+            <!-- Dashboard Section -->
+            <div id="dashboard" class="section active">
+                <div class="loading" id="dashboardLoading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading dashboard data...
+                </div>
+                <div class="kpi-cards">
+                    <div class="kpi-card revenue">
+                        <div class="kpi-title"><i class="fas fa-money-bill"></i> Total Revenue</div>
+                        <div class="kpi-value">KSh 0</div>
+                        <div class="kpi-trend"><i class="fas fa-arrow-up"></i> 0% from last month</div>
+                    </div>
+                    <div class="kpi-card expenses">
+                        <div class="kpi-title"><i class="fas fa-file-invoice-dollar"></i> Total Expenses</div>
+                        <div class="kpi-value">KSh 0</div>
+                        <div class="kpi-trend down"><i class="fas fa-arrow-down"></i> 0% from last month</div>
+                    </div>
+                    <div class="kpi-card profit">
+                        <div class="kpi-title"><i class="fas fa-chart-line"></i> Net Profit</div>
+                        <div class="kpi-value">KSh 0</div>
+                        <div class="kpi-trend"><i class="fas fa-arrow-up"></i> 0% from last month</div>
+                    </div>
+                    <div class="kpi-card trips">
+                        <div class="kpi-title"><i class="fas fa-route"></i> Total Trips</div>
+                        <div class="kpi-value">0</div>
+                        <div class="kpi-trend"><i class="fas fa-arrow-up"></i> 0% from last month</div>
+                    </div>
+                </div>
+
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div class="chart-title">Revenue vs Expenses</div>
+                            <div class="chart-actions">
+                                <select id="revenueTimeframe">
+                                    <option>Last 7 Days</option>
+                                    <option selected>Last 30 Days</option>
+                                    <option>Last 90 Days</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="chart-canvas">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div class="chart-title">Vehicle Utilization</div>
+                            <div class="chart-actions">
+                                <select id="utilizationTimeframe">
+                                    <option>Weekly</option>
+                                    <option selected>Monthly</option>
+                                    <option>Quarterly</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="chart-canvas">
+                            <canvas id="utilizationChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operations Section -->
+            <div id="operations" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Operations Management</div>
+                        <div class="table-filters">
+                            <input type="date" id="filterStartDate">
+                            <input type="date" id="filterEndDate">
+                            <button class="btn btn-primary" id="applyFilters">Apply</button>
+                            <button class="btn btn-success" id="addOperationBtn">
+                                <i class="fas fa-plus"></i> Add Operation
+                            </button>
+                        </div>
+                    </div>
+                    <div class="loading" id="operationsLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading operations...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Vehicle</th>
+                                <th>Driver</th>
+                                <th>Route</th>
+                                <th>Type</th>
+                                <th>Material</th>
+                                <th>Trips</th>
+                                <th>Tonnage</th>
+                                <th>Revenue</th>
+                                <th>Profit</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="operationsTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Vehicles Section -->
+            <div id="vehicles" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Vehicle Management</div>
+                        <div class="table-filters">
+                            <select id="vehicleStatusFilter">
+                                <option value="">All Statuses</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                            <button class="btn btn-success" id="addVehicleBtn">
+                                <i class="fas fa-plus"></i> Add Vehicle
+                            </button>
+                        </div>
+                    </div>
+                    <div class="loading" id="vehiclesLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading vehicles...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Vehicle ID</th>
+                                <th>Make & Model</th>
+                                <th>Status</th>
+                                <!-- <th>Last Service</th>
+                                <th>Insurance</th> -->
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vehiclesTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Drivers Section -->
+            <div id="drivers" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Driver Management</div>
+                        <div class="table-filters">
+                            <select id="driverStatusFilter">
+                                <option value="">All Statuses</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                            <button class="btn btn-success" id="addDriverBtn">
+                                <i class="fas fa-plus"></i> Add Driver
+                            </button>
+                        </div>
+                    </div>
+                    <div class="loading" id="driversLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading drivers...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Driver</th>
+                                <th>License Number</th>
+                                <th>Contact</th>
+                                <th>Status</th>
+                                <th>Last Trip</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="driversTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Materials Section -->
+            <div id="materials" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Materials Management</div>
+                        <button class="btn btn-success" id="addMaterialBtn">
+                            <i class="fas fa-plus"></i> Add Material
+                        </button>
+                    </div>
+                    <div class="loading" id="materialsLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading materials...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Unit</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materialsTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Routes Section -->
+            <div id="routes" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Routes Management</div>
+                        <button class="btn btn-success" id="addRouteBtn">
+                            <i class="fas fa-plus"></i> Add Route
+                        </button>
+                    </div>
+                    <div class="loading" id="routesLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading routes...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th>Distance (km)</th>
+                                <th>Base Rate</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="routesTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Expenses Section -->
+            <div id="expenses" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Expense Management</div>
+                        <button class="btn btn-success" id="addExpenseBtn">
+                            <i class="fas fa-plus"></i> Add Expense
+                        </button>
+                    </div>
+                    <div class="loading" id="expensesLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading expenses...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Vehicle</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expensesTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Maintenance Section -->
+            <div id="maintenance" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Maintenance Records</div>
+                        <button class="btn btn-success" id="addMaintenanceBtn">
+                            <i class="fas fa-plus"></i> Add Maintenance
+                        </button>
+                    </div>
+                    <div class="loading" id="maintenanceLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading maintenance records...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Vehicle</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Cost</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="maintenanceTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Insurance Section -->
+            <div id="insurance" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Insurance Management</div>
+                        <button class="btn btn-success" id="addInsuranceBtn">
+                            <i class="fas fa-plus"></i> Add Insurance
+                        </button>
+                    </div>
+                    <div class="loading" id="insuranceLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading insurance records...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Vehicle</th>
+                                <th>Policy Number</th>
+                                <th>Provider</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Premium</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="insuranceTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Attendance Section -->
+            <div id="attendance" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Driver Attendance</div>
+                        <div class="table-filters">
+                            <input type="date" id="attendanceDate" value="">
+                            <button class="btn btn-primary" id="loadAttendance">Load</button>
+                        </div>
+                    </div>
+                    <div class="loading" id="attendanceLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading attendance records...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Driver</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Hours Worked</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Fuel Records Section -->
+            <div id="fuel" class="section">
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <div class="table-title">Fuel Records</div>
+                        <button class="btn btn-success" id="addFuelBtn">
+                            <i class="fas fa-plus"></i> Add Fuel Record
+                        </button>
+                    </div>
+                    <div class="loading" id="fuelLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading fuel records...
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Vehicle</th>
+                                <th>Driver</th>
+                                <th>Liters</th>
+                                <th>Rate per Liter</th>
+                                <th>Total Cost</th>
+                                <th>Odometer</th>
+                                <th>Receipt</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fuelTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div id="settings" class="section">
+                <div class="settings-card">
+                    <div class="form-header">
+                        <i class="fas fa-cog"></i> Application Settings
+                    </div>
+                    
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="companyName" placeholder="Enter company name">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Default Currency</label>
+                            <select class="form-control" id="defaultCurrency">
+                                <option value="KSh">Kenyan Shilling (KSh)</option>
+                                <option value="USD">US Dollar (USD)</option>
+                                <option value="EUR">Euro (EUR)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Date Format</label>
+                            <select class="form-control" id="dateFormat">
+                                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button class="btn btn-primary" id="saveAppSettings">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
+                        </div>
+                        
+                        <div class="sync-status">
+                            <h3 class="form-header" style="margin-bottom: 15px;">
+                                <i class="fas fa-database"></i> Database Status
+                            </h3>
+                            
+                            <div class="sync-item">
+                                <span><i class="status-indicator status-connected"></i>Supabase Connection:</span>
+                                <span id="supabaseStatus">Connected</span>
+                            </div>
+                            
+                            <div class="sync-item">
+                                <span>Total Operations:</span>
+                                <span id="totalOperations">0</span>
+                            </div>
+                            
+                            <div class="sync-item">
+                                <span>Total Vehicles:</span>
+                                <span id="totalVehicles">0</span>
+                            </div>
+                            
+                            <div class="sync-item">
+                                <span>Total Drivers:</span>
+                                <span id="totalDrivers">0</span>
+                            </div>
+                            
+                            <div class="sync-item">
+                                <span>Last Updated:</span>
+                                <span id="lastUpdated">Just now</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 20px;">
+                            <button class="btn btn-warning" id="clearData">
+                                <i class="fas fa-trash"></i> Clear All Data
+                            </button>
+                            <button class="btn btn-success" id="exportData">
+                                <i class="fas fa-download"></i> Export Data
+                            </button>
+                            <button class="btn btn-primary" id="initializeData">
+                                <i class="fas fa-database"></i> Initialize Sample Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add/Edit Modal -->
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">
+                    <i class="fas fa-plus"></i> Add Item
+                </div>
+                <button class="modal-close" id="modalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="modalBody">
+                <!-- Form content will be populated here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification -->
+    <div id="notification"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
