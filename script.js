@@ -1077,6 +1077,189 @@
                             </div>
                         </form>
                     `
+                    ,
+                   // Add these form templates to the getModalForm method in script.js
+
+// Maintenance form
+maintenance: `
+    <form id="modalForm" onsubmit="app.saveItem(event, 'maintenance')">
+        ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" class="form-control" name="date" required value="${item?.date || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Vehicle</label>
+                <select class="form-control" name="vehicle_id" required>
+                    ${this.getVehicleOptions(item?.vehicle_id)}
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Maintenance Type</label>
+                <select class="form-control" name="type" required>
+                    <option value="Routine Service" ${item?.type === 'Routine Service' ? 'selected' : ''}>Routine Service</option>
+                    <option value="Repair" ${item?.type === 'Repair' ? 'selected' : ''}>Repair</option>
+                    <option value="Tire Replacement" ${item?.type === 'Tire Replacement' ? 'selected' : ''}>Tire Replacement</option>
+                    <option value="Brake Service" ${item?.type === 'Brake Service' ? 'selected' : ''}>Brake Service</option>
+                    <option value="Engine Work" ${item?.type === 'Engine Work' ? 'selected' : ''}>Engine Work</option>
+                    <option value="Other" ${item?.type === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-control" name="status" required>
+                    <option value="scheduled" ${item?.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                    <option value="in-progress" ${item?.status === 'in-progress' ? 'selected' : ''}>In Progress</option>
+                    <option value="completed" ${item?.status === 'completed' ? 'selected' : ''}>Completed</option>
+                    <option value="cancelled" ${item?.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3" required>${item?.description || ''}</textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Cost (KSh)</label>
+                <input type="number" class="form-control" name="cost" step="0.01" required value="${item?.cost || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Odometer Reading</label>
+                <input type="number" class="form-control" name="mileage" value="${item?.mileage || ''}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Service Provider</label>
+            <input type="text" class="form-control" name="service_provider" value="${item?.service_provider || ''}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Next Service Due</label>
+            <input type="date" class="form-control" name="next_service_due" value="${item?.next_service_due || ''}">
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn btn-success">Save Maintenance Record</button>
+            <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+        </div>
+    </form>
+`,
+
+// Insurance form
+insurance: `
+    <form id="modalForm" onsubmit="app.saveItem(event, 'insurance')">
+        ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+        <div class="form-group">
+            <label class="form-label">Vehicle</label>
+            <select class="form-control" name="vehicle_id" required>
+                ${this.getVehicleOptions(item?.vehicle_id)}
+            </select>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Policy Number</label>
+                <input type="text" class="form-control" name="policy_number" required value="${item?.policy_number || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Insurance Provider</label>
+                <input type="text" class="form-control" name="provider" required value="${item?.provider || ''}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-control" name="start_date" required value="${item?.start_date || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-control" name="end_date" required value="${item?.end_date || ''}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Premium Amount (KSh)</label>
+                <input type="number" class="form-control" name="premium_amount" step="0.01" required value="${item?.premium_amount || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Coverage Type</label>
+                <select class="form-control" name="coverage_type" required>
+                    <option value="Comprehensive" ${item?.coverage_type === 'Comprehensive' ? 'selected' : ''}>Comprehensive</option>
+                    <option value="Third Party" ${item?.coverage_type === 'Third Party' ? 'selected' : ''}>Third Party</option>
+                    <option value="Third Party Fire & Theft" ${item?.coverage_type === 'Third Party Fire & Theft' ? 'selected' : ''}>Third Party Fire & Theft</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-control" name="status" required>
+                <option value="active" ${item?.status === 'active' ? 'selected' : ''}>Active</option>
+                <option value="expired" ${item?.status === 'expired' ? 'selected' : ''}>Expired</option>
+                <option value="cancelled" ${item?.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" name="notes" rows="2">${item?.notes || ''}</textarea>
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn btn-success">Save Insurance Record</button>
+            <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+        </div>
+    </form>
+`,
+
+// Attendance form
+attendance: `
+    <form id="modalForm" onsubmit="app.saveItem(event, 'attendance')">
+        ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+        <div class="form-group">
+            <label class="form-label">Driver</label>
+            <select class="form-control" name="driver_id" required>
+                ${this.getDriverOptions(item?.driver_id)}
+            </select>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" class="form-control" name="date" required value="${item?.date || new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-control" name="status" required>
+                    <option value="present" ${item?.status === 'present' ? 'selected' : ''}>Present</option>
+                    <option value="absent" ${item?.status === 'absent' ? 'selected' : ''}>Absent</option>
+                    <option value="late" ${item?.status === 'late' ? 'selected' : ''}>Late</option>
+                    <option value="sick" ${item?.status === 'sick' ? 'selected' : ''}>Sick Leave</option>
+                    <option value="vacation" ${item?.status === 'vacation' ? 'selected' : ''}>Vacation</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Check In Time</label>
+                <input type="time" class="form-control" name="check_in" value="${item?.check_in || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Check Out Time</label>
+                <input type="time" class="form-control" name="check_out" value="${item?.check_out || ''}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Hours Worked</label>
+            <input type="number" class="form-control" name="hours_worked" step="0.1" value="${item?.hours_worked || ''}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" name="notes" rows="2">${item?.notes || ''}</textarea>
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn btn-success">Save Attendance Record</button>
+            <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+        </div>
+    </form>
+`
                 };
                 
                 return forms[type] || '<p>Form not implemented yet.</p>';
