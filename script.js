@@ -180,7 +180,7 @@
                 try {
                     await Promise.all([
                         this.loadVehicles(),
-                        this.loadDrivers(),
+                        this.loadDriver(),
                         this.loadMaterials(),
                         this.loadRoutes(),
                         this.loadOperations(),
@@ -202,11 +202,11 @@
                 this.showLoading('vehiclesLoading', false);
             }
 
-            async loadDrivers() {
+            async loadDriver() {
                 this.showLoading('driversLoading', true);
-                this.data.drivers = await this.fetchData('drivers');
-                this.updateDriversTable();
-                this.showLoading('driversLoading', false);
+                this.data.driver = await this.fetchData('drivers');
+                this.updateDriverTable();
+                this.showLoading('driverLoading', false);
             }
 
             async loadMaterials() {
@@ -279,8 +279,8 @@
                         { vehicle_id: 'KCA-321W', make: 'Isuzu', model: 'FRR', status: 'active', }
                     ];
 
-                    // Sample Drivers
-                    const drivers = [
+                    // Sample Driver
+                    const driver = [
                         { name: 'John Doe', license_number: 'DL-12345', contact: '+254712345678', status: 'active', last_trip: '2023-10-15' },
                         { name: 'Jane Smith', license_number: 'DL-67890', contact: '+254723456789', status: 'active', last_trip: '2023-10-14' },
                         { name: 'Robert Johnson', license_number: 'DL-54321', contact: '+254734567890', status: 'suspended', last_trip: '2023-09-20' },
@@ -320,7 +320,7 @@
                     // Insert sample data
                     await Promise.all([
                         this.insertData('vehicles', vehicles),
-                        this.insertData('drivers', drivers),
+                        this.insertData('driver', driver),
                         this.insertData('materials', materials),
                         this.insertData('routes', routes),
                         this.insertData('operations', operations),
@@ -518,11 +518,11 @@
                 });
             }
             
-            updateDriversTable() {
-                const tbody = document.getElementById('driversTableBody');
+            updateDriverTable() {
+                const tbody = document.getElementById('driverTableBody');
                 tbody.innerHTML = '';
                 
-                this.data.drivers.forEach(driver => {
+                this.data.driver.forEach(driver => {
                     const row = `
                         <tr>
                             <td>${driver.name}</td>
@@ -532,7 +532,7 @@
                             <td>${driver.last_trip || 'Never'}</td>
                             <td>
                                 <button class="btn btn-primary btn-sm" onclick="app.editItem('driver', ${driver.id})">Edit</button>
-                                <button class="btn btn-danger btn-sm" onclick="app.deleteItem('drivers', ${driver.id})">Delete</button>
+                                <button class="btn btn-danger btn-sm" onclick="app.deleteItem('driver', ${driver.id})">Delete</button>
                             </td>
                         </tr>
                     `;
@@ -741,7 +741,7 @@
             updateDataStats() {
                 document.getElementById('totalOperations').textContent = this.data.operations.length;
                 document.getElementById('totalVehicles').textContent = this.data.vehicles.length;
-                document.getElementById('totalDrivers').textContent = this.data.drivers.length;
+                document.getElementById('totalDriver').textContent = this.data.driver.length;
                 document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
             }
             
@@ -1273,7 +1273,7 @@ attendance: `
             }
             
             getDriverOptions(selectedId = null) {
-                return this.data.drivers
+                return this.data.driver
                     .filter(d => d.status === 'active')
                     .map(d => `<option value="${d.id}" ${selectedId === d.id ? 'selected' : ''}>${d.name}</option>`)
                     .join('');
@@ -1463,7 +1463,7 @@ attendance: `
                     // Get fresh data from Supabase
                     const exportData = {
                         vehicles: await this.fetchData('vehicles'),
-                        drivers: await this.fetchData('drivers'),
+                        driver: await this.fetchData('driver'),
                         materials: await this.fetchData('materials'),
                         routes: await this.fetchData('routes'),
                         operations: await this.fetchData('operations'),
@@ -1643,9 +1643,9 @@ attendance: `
                 }
             }
 
-            async filterDriversByStatus(status) {
+            async filterDriverByStatus(status) {
                 try {
-                    let query = supabaseClient.from('drivers').select('*');
+                    let query = supabaseClient.from('driver').select('*');
                     
                     if (status) {
                         query = query.eq('status', status);
@@ -1655,18 +1655,18 @@ attendance: `
                     
                     if (error) throw error;
                     
-                    this.data.drivers = data || [];
-                    this.updateDriversTable();
+                    this.data.driver = data || [];
+                    this.updateDriverTable();
                 } catch (error) {
-                    console.error('Error filtering drivers:', error);
-                    this.showNotification('Failed to filter drivers', 'error');
+                    console.error('Error filtering driver:', error);
+                    this.showNotification('Failed to filter driver', 'error');
                 }
             }
 
             async loadDataByType(type) {
                 switch(type) {
                     case 'vehicle': await this.loadVehicles(); break;
-                    case 'driver': await this.loadDrivers(); break;
+                    case 'driver': await this.loadDriver(); break;
                     case 'material': await this.loadMaterials(); break;
                     case 'route': await this.loadRoutes(); break;
                     case 'operation': await this.loadOperations(); break;
@@ -1684,6 +1684,7 @@ attendance: `
         document.addEventListener('DOMContentLoaded', function() {
             app = new FleetProApp();
         });
+
 
 
 
