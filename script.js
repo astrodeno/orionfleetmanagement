@@ -12,7 +12,7 @@
                 this.data = {
                     operations: [],
                     vehicles: [],
-                    drivers: [],
+                    driver: [],
                     materials: [],
                     routes: [],
                     expenses: [],
@@ -1684,5 +1684,6 @@ attendance: `
         document.addEventListener('DOMContentLoaded', function() {
             app = new FleetProApp();
         });
+
 
 
