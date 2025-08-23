@@ -96,7 +96,7 @@ body {
 
 /* Mobile Toggle */
 .mobile-toggle {
-    position: fixed;
+    position: relative;
     top: 15px;
     left: 15px;
     background: var(--primary);
@@ -1106,3 +1106,4 @@ body {
         color: #e2e8f0;
     }
 }
+
