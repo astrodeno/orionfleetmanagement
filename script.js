@@ -1681,3 +1681,245 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
+
+// Fix for the vehicle_id null constraint error
+
+// 1. Update the vehicle form validation in saveItem method
+async saveItem(event, type) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const item = {};
+    let isEdit = false;
+    let id = null;
+
+    for (let [key, value] of formData.entries()) {
+        if (key === 'id') {
+            id = parseInt(value);
+            isEdit = true;
+            continue;
+        }
+        
+        // Skip empty values
+        if (!value || value.trim() === '') {
+            continue;
+        }
+        
+        // Parse numeric fields
+        if (key === 'vehicle_id' || key === 'driver_id' || key === 'route_id' || 
+            key === 'material_id' || key === 'category_id') {
+            item[key] = parseInt(value);
+        } 
+        else if (key === 'trips' || key === 'tonnage' || key === 'rate_per_unit' || 
+                 key === 'fuel_cost' || key === 'distance_km' || key === 'base_rate' || 
+                 key === 'amount' || key === 'liters' || key === 'rate_per_liter' || 
+                 key === 'total_cost' || key === 'odometer' || key === 'cost' || 
+                 key === 'premium_amount' || key === 'mileage') {
+            item[key] = parseFloat(value);
+        } 
+        else {
+            item[key] = value.trim();
+        }
+    }
+
+    // Specific validation for vehicles
+    if (type === 'vehicle') {
+        if (!item.vehicle_id || item.vehicle_id.trim() === '') {
+            this.showNotification('Vehicle ID is required and cannot be empty', 'error');
+            return;
+        }
+        if (!item.make || item.make.trim() === '') {
+            this.showNotification('Vehicle make is required', 'error');
+            return;
+        }
+        if (!item.model || item.model.trim() === '') {
+            this.showNotification('Vehicle model is required', 'error');
+            return;
+        }
+        if (!item.status) {
+            this.showNotification('Vehicle status is required', 'error');
+            return;
+        }
+
+        // Check for duplicate vehicle_id (only for new vehicles)
+        if (!isEdit) {
+            const existingVehicle = this.data.vehicles.find(v => 
+                v.vehicle_id.toLowerCase() === item.vehicle_id.toLowerCase()
+            );
+            if (existingVehicle) {
+                this.showNotification('A vehicle with this ID already exists', 'error');
+                return;
+            }
+        }
+    }
+
+    // Additional validation for operations
+    if (type === 'operation') {
+        if (!item.vehicle_id) {
+            this.showNotification('Please select a vehicle', 'error');
+            return;
+        }
+        if (!item.driver_id) {
+            this.showNotification('Please select a driver', 'error');
+            return;
+        }
+        if (!item.route_id) {
+            this.showNotification('Please select a route', 'error');
+            return;
+        }
+        if (!item.material_id) {
+            this.showNotification('Please select a material', 'error');
+            return;
+        }
+    }
+
+    try {
+        let result;
+        const table = type === 'driver' ? 'driver' : type + 's';
+        
+        if (isEdit) {
+            result = await this.updateData(table, id, item);
+            this.showNotification(`${type} updated successfully!`, 'success');
+        } else {
+            // Add created_by reference for audit
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (user) item.created_by = user.id;
+            
+            result = await this.insertData(table, item);
+            this.showNotification(`${type} created successfully!`, 'success');
+        }
+
+        // Reload data
+        await this.loadDataByType(type);
+        this.updateDashboard();
+        this.updateDataStats();
+        this.closeModal();
+    } catch (error) {
+        console.error('Error saving item:', error);
+        
+        // Handle specific database constraint errors
+        if (error.code === '23502') {
+            this.showNotification('Required field is missing. Please fill all required fields.', 'error');
+        } else if (error.code === '23505') {
+            this.showNotification('This record already exists. Please use a different identifier.', 'error');
+        } else {
+            this.showNotification(`Failed to save ${type}: ${error.message}`, 'error');
+        }
+    }
+}
+
+// 2. Update the vehicle form to ensure proper field handling
+getModalForm(type, id = null) {
+    let item = null;
+    if (id) {
+        const collection = type + 's';
+        if (this.data[collection]) {
+            item = this.data[collection].find(i => i.id === id);
+        }
+    }
+    
+    // Updated vehicle form with better field handling
+    if (type === 'vehicle') {
+        return `
+            <form id="modalForm" onsubmit="app.saveItem(event, 'vehicle')">
+                ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                <div class="form-group">
+                    <label class="form-label">Vehicle ID <span style="color: red;">*</span></label>
+                    <input type="text" class="form-control" name="vehicle_id" required 
+                           placeholder="e.g., KBX-123Y" 
+                           value="${item?.vehicle_id || ''}"
+                           pattern="[A-Za-z0-9-]+"
+                           title="Vehicle ID should contain only letters, numbers, and hyphens">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Make <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" name="make" required 
+                               placeholder="e.g., Isuzu, Toyota"
+                               value="${item?.make || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" name="model" required 
+                               placeholder="e.g., NPR, Dyna"
+                               value="${item?.model || ''}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status <span style="color: red;">*</span></label>
+                    <select class="form-control" name="status" required>
+                        <option value="">Select Status</option>
+                        <option value="active" ${item?.status === 'active' ? 'selected' : ''}>Active</option>
+                        <option value="inactive" ${item?.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                        <option value="maintenance" ${item?.status === 'maintenance' ? 'selected' : ''}>Maintenance</option>
+                        <option value="retired" ${item?.status === 'retired' ? 'selected' : ''}>Retired</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <button type="submit" class="btn btn-success">Save Vehicle</button>
+                    <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                </div>
+            </form>
+        `;
+    }
+    
+    // Return other forms unchanged...
+    // [Include the rest of your existing form cases here]
+}
+
+// 3. Add a method to check for duplicate vehicle IDs
+async checkVehicleIdExists(vehicleId, excludeId = null) {
+    try {
+        let query = supabaseClient
+            .from('vehicles')
+            .select('id, vehicle_id')
+            .ilike('vehicle_id', vehicleId);
+        
+        if (excludeId) {
+            query = query.neq('id', excludeId);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        return data && data.length > 0;
+    } catch (error) {
+        console.error('Error checking vehicle ID:', error);
+        return false;
+    }
+}
+
+// 4. Enhanced insertData method with better error handling
+async insertData(table, data) {
+    try {
+        // Log the data being inserted for debugging
+        console.log(`Inserting into ${table}:`, data);
+        
+        // Validate that required fields are not null
+        if (table === 'vehicles') {
+            if (!data.vehicle_id) {
+                throw new Error('Vehicle ID is required');
+            }
+            if (!data.make) {
+                throw new Error('Vehicle make is required');
+            }
+            if (!data.model) {
+                throw new Error('Vehicle model is required');
+            }
+        }
+        
+        const { data: result, error } = await supabaseClient
+            .from(table)
+            .insert(data)
+            .select();
+        
+        if (error) throw error;
+        return result[0];
+    } catch (error) {
+        console.error(`Error inserting into ${table}:`, error);
+        this.showNotification(`Failed to save ${table}: ${error.message}`, 'error');
+        throw error;
+    }
+}
