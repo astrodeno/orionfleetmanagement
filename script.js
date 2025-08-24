@@ -1323,6 +1323,7 @@ class FleetProApp {
         try {
             let result;
            const table = type === 'driver' ? 'driver' : type + 's';
+console.log('Table name being used:', table, 'for type:', type);
             
             if (isEdit) {
                 result = await this.updateData(table, id, item);
@@ -1331,7 +1332,10 @@ class FleetProApp {
                 // Add created_by reference for audit
                 const { data: { user } } = await supabaseClient.auth.getUser();
                 if (user) item.created_by = user.id;
-                
+                } catch (authError) {
+                // Continue without user ID if auth fails
+                console.log('No authenticated user found, continuing without created_by');
+            }
                 result = await this.insertData(table, item);
                 this.showNotification(`${type} created successfully!`, 'success');
             }
@@ -1681,4 +1685,5 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
+
 
