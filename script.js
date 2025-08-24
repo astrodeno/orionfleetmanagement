@@ -367,7 +367,212 @@ class FleetProApp {
                 this.switchSection(e.currentTarget.getAttribute('data-section'));
             });
         });
-        
+        // Add these functions to your FleetProApp class or update existing ones
+
+setupEventListeners() {
+    // Navigation - Make sure this targets the correct elements
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const section = e.currentTarget.getAttribute('data-section');
+            console.log('Switching to section:', section); // Debug log
+            this.switchSection(section);
+        });
+    });
+    
+    // Mobile sidebar toggle - Make sure the toggle works
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (sidebarToggle && sidebar) {
+        sidebarToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('Toggling sidebar'); // Debug log
+            sidebar.classList.toggle('active');
+        });
+    }
+    
+    // Click outside sidebar to close (for mobile)
+    document.addEventListener('click', (e) => {
+        if (sidebar && sidebar.classList.contains('active')) {
+            if (!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+                sidebar.classList.remove('active');
+            }
+        }
+    });
+    
+    // Add buttons - make sure these exist before adding listeners
+    const addButtons = [
+        { id: 'addOperationBtn', action: () => this.openAddModal('operation') },
+        { id: 'addVehicleBtn', action: () => this.openAddModal('vehicle') },
+        { id: 'addDriverBtn', action: () => this.openAddModal('driver') },
+        { id: 'addMaterialBtn', action: () => this.openAddModal('material') },
+        { id: 'addRouteBtn', action: () => this.openAddModal('route') },
+        { id: 'addExpenseBtn', action: () => this.openAddModal('expense') },
+        { id: 'addMaintenanceBtn', action: () => this.openAddModal('maintenance') },
+        { id: 'addInsuranceBtn', action: () => this.openAddModal('insurance') },
+        { id: 'addFuelBtn', action: () => this.openAddModal('fuel') }
+    ];
+    
+    addButtons.forEach(btn => {
+        const element = document.getElementById(btn.id);
+        if (element) {
+            element.addEventListener('click', btn.action);
+        }
+    });
+    
+    // Modal events
+    const modalClose = document.getElementById('modalClose');
+    const addModal = document.getElementById('addModal');
+    
+    if (modalClose) {
+        modalClose.addEventListener('click', () => this.closeModal());
+    }
+    
+    if (addModal) {
+        addModal.addEventListener('click', (e) => {
+            if (e.target.id === 'addModal') this.closeModal();
+        });
+    }
+    
+    // Settings buttons
+    const settingsButtons = [
+        { id: 'saveAppSettings', action: () => this.saveSettings() },
+        { id: 'clearData', action: () => this.clearAllData() },
+        { id: 'exportData', action: () => this.exportData() },
+        { id: 'initializeData', action: () => this.initializeSampleData() }
+    ];
+    
+    settingsButtons.forEach(btn => {
+        const element = document.getElementById(btn.id);
+        if (element) {
+            element.addEventListener('click', btn.action);
+        }
+    });
+    
+    // Sync button
+    const syncBtn = document.getElementById('syncBtn');
+    if (syncBtn) {
+        syncBtn.addEventListener('click', () => this.syncData());
+    }
+    
+    // Load attendance
+    const loadAttendance = document.getElementById('loadAttendance');
+    if (loadAttendance) {
+        loadAttendance.addEventListener('click', () => this.loadAttendanceForDate());
+    }
+    
+    // Filter buttons
+    const applyFilters = document.getElementById('applyFilters');
+    if (applyFilters) {
+        applyFilters.addEventListener('click', () => {
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
+            this.filterOperationsByDateRange(startDate, endDate);
+        });
+    }
+
+    // Status filters
+    const vehicleStatusFilter = document.getElementById('vehicleStatusFilter');
+    if (vehicleStatusFilter) {
+        vehicleStatusFilter.addEventListener('change', (e) => {
+            this.filterVehiclesByStatus(e.target.value);
+        });
+    }
+
+    const driverStatusFilter = document.getElementById('driverStatusFilter');
+    if (driverStatusFilter) {
+        driverStatusFilter.addEventListener('change', (e) => {
+            this.filterDriversByStatus(e.target.value);
+        });
+    }
+}
+
+switchSection(sectionName) {
+    console.log('switchSection called with:', sectionName); // Debug log
+    
+    if (!sectionName) {
+        console.error('No section name provided');
+        return;
+    }
+    
+    // Update navigation - remove active class from all nav items
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Add active class to clicked nav item
+    const activeNavItem = document.querySelector(`[data-section="${sectionName}"]`);
+    if (activeNavItem) {
+        activeNavItem.classList.add('active');
+    } else {
+        console.error('Nav item not found for section:', sectionName);
+    }
+    
+    // Update sections - hide all sections
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none'; // Ensure it's hidden
+    });
+    
+    // Show the selected section
+    const activeSection = document.getElementById(sectionName);
+    if (activeSection) {
+        activeSection.classList.add('active');
+        activeSection.style.display = 'block'; // Ensure it's visible
+        console.log('Switched to section:', sectionName);
+    } else {
+        console.error('Section not found:', sectionName);
+        // Fallback to dashboard if section not found
+        const dashboard = document.getElementById('dashboard');
+        if (dashboard) {
+            dashboard.classList.add('active');
+            dashboard.style.display = 'block';
+        }
+    }
+    
+    // Update topbar title
+    const titles = {
+        dashboard: 'Dashboard Overview',
+        operations: 'Operations Management',
+        vehicles: 'Vehicle Management',
+        drivers: 'Driver Management',
+        materials: 'Materials Management',
+        routes: 'Routes Management',
+        expenses: 'Expense Management',
+        maintenance: 'Maintenance Records',
+        insurance: 'Insurance Management',
+        attendance: 'Driver Attendance',
+        fuel: 'Fuel Records',
+        settings: 'Application Settings'
+    };
+    
+    const topbarTitle = document.getElementById('topbarTitle');
+    if (topbarTitle) {
+        topbarTitle.textContent = titles[sectionName] || 'FleetPro';
+    }
+    
+    // Close sidebar on mobile after navigation
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && window.innerWidth <= 768) {
+        sidebar.classList.remove('active');
+    }
+}
+
+// Add this method to help debug
+debugNavigation() {
+    console.log('Available nav items:', document.querySelectorAll('.nav-item').length);
+    console.log('Available sections:', document.querySelectorAll('.section').length);
+    
+    document.querySelectorAll('.nav-item').forEach((item, index) => {
+        const section = item.getAttribute('data-section');
+        console.log(`Nav item ${index}: ${section}`);
+    });
+    
+    document.querySelectorAll('.section').forEach((section, index) => {
+        console.log(`Section ${index}: ${section.id}`);
+    });
+}
         // Mobile sidebar toggle
         document.getElementById('sidebarToggle').addEventListener('click', () => {
             document.getElementById('sidebar').classList.toggle('active');
@@ -1685,5 +1890,6 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
+
 
 
