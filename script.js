@@ -1322,7 +1322,7 @@ class FleetProApp {
 
         try {
             let result;
-            const table = type + 's';
+           const table = type === 'driver' ? 'driver' : type + 's';
             
             if (isEdit) {
                 result = await this.updateData(table, id, item);
@@ -1681,3 +1681,4 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
+
