@@ -400,74 +400,6 @@ setupEventListeners() {
             }
         }
     });
-    
-   
-    
-   
-    
-   
-    
-    
-    
-    
-    // Show the selected section
-    const activeSection = document.getElementById(sectionName);
-    if (activeSection) {
-        activeSection.classList.add('active');
-        activeSection.style.display = 'block'; // Ensure it's visible
-        console.log('Switched to section:', sectionName);
-    } else {
-        console.error('Section not found:', sectionName);
-        // Fallback to dashboard if section not found
-        const dashboard = document.getElementById('dashboard');
-        if (dashboard) {
-            dashboard.classList.add('active');
-            dashboard.style.display = 'block';
-        }
-    }
-    
-    // Update topbar title
-    const titles = {
-        dashboard: 'Dashboard Overview',
-        operations: 'Operations Management',
-        vehicles: 'Vehicle Management',
-        drivers: 'Driver Management',
-        materials: 'Materials Management',
-        routes: 'Routes Management',
-        expenses: 'Expense Management',
-        maintenance: 'Maintenance Records',
-        insurance: 'Insurance Management',
-        attendance: 'Driver Attendance',
-        fuel: 'Fuel Records',
-        settings: 'Application Settings'
-    };
-    
-    const topbarTitle = document.getElementById('topbarTitle');
-    if (topbarTitle) {
-        topbarTitle.textContent = titles[sectionName] || 'FleetPro';
-    }
-    
-    // Close sidebar on mobile after navigation
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar && window.innerWidth <= 768) {
-        sidebar.classList.remove('active');
-    }
-}
-
-// Add this method to help debug
-debugNavigation() {
-    console.log('Available nav items:', document.querySelectorAll('.nav-item').length);
-    console.log('Available sections:', document.querySelectorAll('.section').length);
-    
-    document.querySelectorAll('.nav-item').forEach((item, index) => {
-        const section = item.getAttribute('data-section');
-        console.log(`Nav item ${index}: ${section}`);
-    });
-    
-    document.querySelectorAll('.section').forEach((section, index) => {
-        console.log(`Section ${index}: ${section.id}`);
-    });
-}
         // Mobile sidebar toggle
         document.getElementById('sidebarToggle').addEventListener('click', () => {
             document.getElementById('sidebar').classList.toggle('active');
@@ -1785,6 +1717,7 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
+
 
 
 
