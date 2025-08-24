@@ -401,119 +401,14 @@ setupEventListeners() {
         }
     });
     
-    // Add buttons - make sure these exist before adding listeners
-    const addButtons = [
-        { id: 'addOperationBtn', action: () => this.openAddModal('operation') },
-        { id: 'addVehicleBtn', action: () => this.openAddModal('vehicle') },
-        { id: 'addDriverBtn', action: () => this.openAddModal('driver') },
-        { id: 'addMaterialBtn', action: () => this.openAddModal('material') },
-        { id: 'addRouteBtn', action: () => this.openAddModal('route') },
-        { id: 'addExpenseBtn', action: () => this.openAddModal('expense') },
-        { id: 'addMaintenanceBtn', action: () => this.openAddModal('maintenance') },
-        { id: 'addInsuranceBtn', action: () => this.openAddModal('insurance') },
-        { id: 'addFuelBtn', action: () => this.openAddModal('fuel') }
-    ];
+   
     
-    addButtons.forEach(btn => {
-        const element = document.getElementById(btn.id);
-        if (element) {
-            element.addEventListener('click', btn.action);
-        }
-    });
+   
     
-    // Modal events
-    const modalClose = document.getElementById('modalClose');
-    const addModal = document.getElementById('addModal');
+   
     
-    if (modalClose) {
-        modalClose.addEventListener('click', () => this.closeModal());
-    }
     
-    if (addModal) {
-        addModal.addEventListener('click', (e) => {
-            if (e.target.id === 'addModal') this.closeModal();
-        });
-    }
     
-    // Settings buttons
-    const settingsButtons = [
-        { id: 'saveAppSettings', action: () => this.saveSettings() },
-        { id: 'clearData', action: () => this.clearAllData() },
-        { id: 'exportData', action: () => this.exportData() },
-        { id: 'initializeData', action: () => this.initializeSampleData() }
-    ];
-    
-    settingsButtons.forEach(btn => {
-        const element = document.getElementById(btn.id);
-        if (element) {
-            element.addEventListener('click', btn.action);
-        }
-    });
-    
-    // Sync button
-    const syncBtn = document.getElementById('syncBtn');
-    if (syncBtn) {
-        syncBtn.addEventListener('click', () => this.syncData());
-    }
-    
-    // Load attendance
-    const loadAttendance = document.getElementById('loadAttendance');
-    if (loadAttendance) {
-        loadAttendance.addEventListener('click', () => this.loadAttendanceForDate());
-    }
-    
-    // Filter buttons
-    const applyFilters = document.getElementById('applyFilters');
-    if (applyFilters) {
-        applyFilters.addEventListener('click', () => {
-            const startDate = document.getElementById('filterStartDate').value;
-            const endDate = document.getElementById('filterEndDate').value;
-            this.filterOperationsByDateRange(startDate, endDate);
-        });
-    }
-
-    // Status filters
-    const vehicleStatusFilter = document.getElementById('vehicleStatusFilter');
-    if (vehicleStatusFilter) {
-        vehicleStatusFilter.addEventListener('change', (e) => {
-            this.filterVehiclesByStatus(e.target.value);
-        });
-    }
-
-    const driverStatusFilter = document.getElementById('driverStatusFilter');
-    if (driverStatusFilter) {
-        driverStatusFilter.addEventListener('change', (e) => {
-            this.filterDriversByStatus(e.target.value);
-        });
-    }
-}
-
-switchSection(sectionName) {
-    console.log('switchSection called with:', sectionName); // Debug log
-    
-    if (!sectionName) {
-        console.error('No section name provided');
-        return;
-    }
-    
-    // Update navigation - remove active class from all nav items
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    
-    // Add active class to clicked nav item
-    const activeNavItem = document.querySelector(`[data-section="${sectionName}"]`);
-    if (activeNavItem) {
-        activeNavItem.classList.add('active');
-    } else {
-        console.error('Nav item not found for section:', sectionName);
-    }
-    
-    // Update sections - hide all sections
-    document.querySelectorAll('.section').forEach(section => {
-        section.classList.remove('active');
-        section.style.display = 'none'; // Ensure it's hidden
-    });
     
     // Show the selected section
     const activeSection = document.getElementById(sectionName);
@@ -1890,6 +1785,7 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
+
 
 
 
