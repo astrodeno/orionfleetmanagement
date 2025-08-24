@@ -90,9 +90,25 @@ class FleetProApp {
         }
     }
 
-    // Insert data into Supabase
+    // Enhanced insertData method with better error handling
     async insertData(table, data) {
         try {
+            // Log the data being inserted for debugging
+            console.log(`Inserting into ${table}:`, data);
+            
+            // Validate that required fields are not null
+            if (table === 'vehicles') {
+                if (!data.vehicle_id) {
+                    throw new Error('Vehicle ID is required');
+                }
+                if (!data.make) {
+                    throw new Error('Vehicle make is required');
+                }
+                if (!data.model) {
+                    throw new Error('Vehicle model is required');
+                }
+            }
+            
             const { data: result, error } = await supabaseClient
                 .from(table)
                 .insert(data)
@@ -102,7 +118,7 @@ class FleetProApp {
             return result[0];
         } catch (error) {
             console.error(`Error inserting into ${table}:`, error);
-            this.showNotification(`Failed to save ${table}`, 'error');
+            this.showNotification(`Failed to save ${table}: ${error.message}`, 'error');
             throw error;
         }
     }
@@ -171,6 +187,29 @@ class FleetProApp {
             console.error(`Error calling function ${functionName}:`, error);
             this.showNotification(`Failed to execute ${functionName}`, 'error');
             throw error;
+        }
+    }
+
+    // Add method to check for duplicate vehicle IDs
+    async checkVehicleIdExists(vehicleId, excludeId = null) {
+        try {
+            let query = supabaseClient
+                .from('vehicles')
+                .select('id, vehicle_id')
+                .ilike('vehicle_id', vehicleId);
+            
+            if (excludeId) {
+                query = query.neq('id', excludeId);
+            }
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            
+            return data && data.length > 0;
+        } catch (error) {
+            console.error('Error checking vehicle ID:', error);
+            return false;
         }
     }
 
@@ -569,7 +608,1076 @@ class FleetProApp {
                 <tr>
                     <td>${route.name}</td>
                     <td>${route.distance_km} km</td>
-                    <td>KSh ${route.base_rate.toLocaleString()}</td>
+                    <td>KSh ${fuel.total_cost.toLocaleString()}</td>
+    <td>${fuel.odometer_reading.toLocaleString()}</td>
+    <td>
+        ${fuel.receipt_url ? `<a href="${fuel.receipt_url}" target="_blank">View</a>` : 'N/A'}
+    </td>
+    <td>
+        <button class="btn btn-primary btn-sm" onclick="app.editItem('fuel', ${fuel.id})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="app.deleteItem('fuel_records', ${fuel.id})">Delete</button>
+    </td>
+</tr>
+`;
+            tbody.innerHTML += row;
+        });
+    }
+    
+    updateDashboard() {
+        this.showLoading('dashboardLoading', true);
+        
+        // Calculate KPIs
+        const totalRevenue = this.data.operations.reduce((sum, op) => {
+            return sum + ((op.trips * op.rate_per_unit) + (op.tonnage * op.rate_per_unit));
+        }, 0);
+        
+        const totalExpenses = this.data.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const totalFuelCost = this.data.operations.reduce((sum, op) => sum + op.fuel_cost, 0);
+        const totalMaintenanceCost = this.data.maintenance.reduce((sum, m) => sum + m.cost, 0);
+        
+        const totalExp = totalExpenses + totalFuelCost + totalMaintenanceCost;
+        const netProfit = totalRevenue - totalExp;
+        const totalTrips = this.data.operations.reduce((sum, op) => sum + op.trips, 0);
+        
+        // Update KPI cards
+        document.querySelector('.kpi-card.revenue .kpi-value').textContent = `KSh ${totalRevenue.toLocaleString()}`;
+        document.querySelector('.kpi-card.expenses .kpi-value').textContent = `KSh ${totalExp.toLocaleString()}`;
+        document.querySelector('.kpi-card.profit .kpi-value').textContent = `KSh ${netProfit.toLocaleString()}`;
+        document.querySelector('.kpi-card.trips .kpi-value').textContent = totalTrips;
+        
+        // Update trend indicators
+        const revenueTrend = totalRevenue > 500000 ? 'up' : 'down';
+        document.querySelector('.kpi-card.revenue .kpi-trend').className = 
+            `kpi-trend ${revenueTrend === 'up' ? '' : 'down'}`;
+        document.querySelector('.kpi-card.revenue .kpi-trend i').className = 
+            `fas fa-arrow-${revenueTrend === 'up' ? 'up' : 'down'}`;
+        document.querySelector('.kpi-card.revenue .kpi-trend').textContent = 
+            `${revenueTrend === 'up' ? '+' : '-'}15% from last month`;
+        
+        this.showLoading('dashboardLoading', false);
+    }
+    
+    updateDataStats() {
+        document.getElementById('totalOperations').textContent = this.data.operations.length;
+        document.getElementById('totalVehicles').textContent = this.data.vehicles.length;
+        document.getElementById('totalDriver').textContent = this.data.driver.length;
+        document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+    }
+    
+    // Helper methods
+    getVehicleById(id) {
+        return this.data.vehicles.find(v => v.id === id);
+    }
+    
+    getDriverById(id) {
+        return this.data.driver.find(d => d.id === id);
+    }
+    
+    getRouteById(id) {
+        return this.data.routes.find(r => r.id === id);
+    }
+    
+    getMaterialById(id) {
+        return this.data.materials.find(m => m.id === id);
+    }
+    
+    getVehicleStatusClass(status) {
+        const classes = {
+            'active': 'badge-active',
+            'inactive': 'badge-inactive',
+            'maintenance': 'badge-maintenance',
+            'retired': 'badge-inactive'
+        };
+        return classes[status] || '';
+    }
+    
+    getDriverStatusClass(status) {
+        const classes = {
+            'active': 'badge-active',
+            'inactive': 'badge-inactive',
+            'suspended': 'badge-suspended'
+        };
+        return classes[status] || '';
+    }
+    
+    // Modal management
+    openAddModal(type, id = null) {
+        const modal = document.getElementById('addModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        
+        const titles = {
+            operation: '<i class="fas fa-road"></i> Add Operation',
+            vehicle: '<i class="fas fa-truck"></i> Add Vehicle',
+            driver: '<i class="fas fa-user"></i> Add Driver',
+            material: '<i class="fas fa-boxes"></i> Add Material',
+            route: '<i class="fas fa-route"></i> Add Route',
+            expense: '<i class="fas fa-money-bill-wave"></i> Add Expense',
+            maintenance: '<i class="fas fa-tools"></i> Add Maintenance',
+            insurance: '<i class="fas fa-shield-alt"></i> Add Insurance',
+            fuel: '<i class="fas fa-gas-pump"></i> Add Fuel Record'
+        };
+        
+        modalTitle.innerHTML = titles[type] || '<i class="fas fa-plus"></i> Add Item';
+        modalBody.innerHTML = this.getModalForm(type, id);
+        modal.classList.add('active');
+    }
+    
+    closeModal() {
+        document.getElementById('addModal').classList.remove('active');
+    }
+    
+    getModalForm(type, id = null) {
+        let item = null;
+        if (id) {
+            const collection = type + 's';
+            if (this.data[collection]) {
+                item = this.data[collection].find(i => i.id === id);
+            }
+        }
+        
+        // Updated vehicle form with better field handling
+        if (type === 'vehicle') {
+            return `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'vehicle')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Vehicle ID <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" name="vehicle_id" required 
+                               placeholder="e.g., KBX-123Y" 
+                               value="${item?.vehicle_id || ''}"
+                               pattern="[A-Za-z0-9-]+"
+                               title="Vehicle ID should contain only letters, numbers, and hyphens">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Make <span style="color: red;">*</span></label>
+                            <input type="text" class="form-control" name="make" required 
+                                   placeholder="e.g., Isuzu, Toyota"
+                                   value="${item?.make || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Model <span style="color: red;">*</span></label>
+                            <input type="text" class="form-control" name="model" required 
+                                   placeholder="e.g., NPR, Dyna"
+                                   value="${item?.model || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status <span style="color: red;">*</span></label>
+                        <select class="form-control" name="status" required>
+                            <option value="">Select Status</option>
+                            <option value="active" ${item?.status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="inactive" ${item?.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                            <option value="maintenance" ${item?.status === 'maintenance' ? 'selected' : ''}>Maintenance</option>
+                            <option value="retired" ${item?.status === 'retired' ? 'selected' : ''}>Retired</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Vehicle</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `;
+        }
+        
+        const forms = {
+            driver: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'driver')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Driver Name</label>
+                        <input type="text" class="form-control" name="name" required value="${item?.name || ''}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">License Number</label>
+                            <input type="text" class="form-control" name="license_number" required value="${item?.license_number || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Contact</label>
+                            <input type="tel" class="form-control" name="contact" required value="${item?.contact || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-control" name="status" required>
+                            <option value="active" ${item?.status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="inactive" ${item?.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                            <option value="suspended" ${item?.status === 'suspended' ? 'selected' : ''}>Suspended</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Driver</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `,
+            material: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'material')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Material Name</label>
+                        <input type="text" class="form-control" name="name" required value="${item?.name || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Unit</label>
+                        <select class="form-control" name="unit" required>
+                            <option value="Ton" ${item?.unit === 'Ton' ? 'selected' : ''}>Ton</option>
+                            <option value="Kg" ${item?.unit === 'Kg' ? 'selected' : ''}>Kilogram</option>
+                            <option value="Box" ${item?.unit === 'Box' ? 'selected' : ''}>Box</option>
+                            <option value="Unit" ${item?.unit === 'Unit' ? 'selected' : ''}>Unit</option>
+                            <option value="Liter" ${item?.unit === 'Liter' ? 'selected' : ''}>Liter</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Material</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `,
+            route: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'route')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Route Name</label>
+                        <input type="text" class="form-control" name="name" placeholder="e.g., Nairobi to Mombasa" required value="${item?.name || ''}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Distance (km)</label>
+                            <input type="number" class="form-control" name="distance_km" required value="${item?.distance_km || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Base Rate (KSh)</label>
+                            <input type="number" class="form-control" name="base_rate" required value="${item?.base_rate || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Route</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `,
+            expense: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'expense')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" name="date" required value="${item?.date || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Category</label>
+                            <select class="form-control" name="category" required>
+                                <option value="Fuel" ${item?.category === 'Fuel' ? 'selected' : ''}>Fuel</option>
+                                <option value="Maintenance" ${item?.category === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
+                                <option value="Insurance" ${item?.category === 'Insurance' ? 'selected' : ''}>Insurance</option>
+                                <option value="Repairs" ${item?.category === 'Repairs' ? 'selected' : ''}>Repairs</option>
+                                <option value="Other" ${item?.category === 'Other' ? 'selected' : ''}>Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <input type="text" class="form-control" name="description" required value="${item?.description || ''}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Vehicle</label>
+                            <select class="form-control" name="vehicle_id" required>
+                                ${this.getVehicleOptions(item?.vehicle_id)}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Amount (KSh)</label>
+                            <input type="number" class="form-control" name="amount" required value="${item?.amount || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Expense</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `,
+            operation: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'operation')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Operation Date</label>
+                        <input type="date" class="form-control" name="operation_date" required value="${item?.operation_date || ''}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Vehicle</label>
+                            <select class="form-control" name="vehicle_id" required>
+                                ${this.getVehicleOptions(item?.vehicle_id)}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Driver</label>
+                            <select class="form-control" name="driver_id" required>
+                                ${this.getDriverOptions(item?.driver_id)}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Route</label>
+                            <select class="form-control" name="route_id" required>
+                                ${this.getRouteOptions(item?.route_id)}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Material</label>
+                            <select class="form-control" name="material_id" required>
+                                ${this.getMaterialOptions(item?.material_id)}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Trips</label>
+                            <input type="number" class="form-control" name="trips" min="1" required value="${item?.trips || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tonnage</label>
+                            <input type="number" class="form-control" name="tonnage" step="0.1" required value="${item?.tonnage || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Rate per Unit (KSh)</label>
+                            <input type="number" class="form-control" name="rate_per_unit" required value="${item?.rate_per_unit || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fuel Cost (KSh)</label>
+                            <input type="number" class="form-control" name="fuel_cost" required value="${item?.fuel_cost || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Operation</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `,
+            fuel: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'fuel')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-control" name="date" required value="${item?.date || ''}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Vehicle</label>
+                            <select class="form-control" name="vehicle_id" required>
+                                ${this.getVehicleOptions(item?.vehicle_id)}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Driver</label>
+                            <select class="form-control" name="driver_id" required>
+                                ${this.getDriverOptions(item?.driver_id)}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Liters</label>
+                            <input type="number" class="form-control" name="liters" step="0.1" required value="${item?.liters || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rate per Liter (KSh)</label>
+                            <input type="number" class="form-control" name="rate_per_liter" step="0.01" required value="${item?.rate_per_liter || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Total Cost (KSh)</label>
+                            <input type="number" class="form-control" name="total_cost" required value="${item?.total_cost || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Odometer Reading</label>
+                            <input type="number" class="form-control" name="odometer" required value="${item?.odometer || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Fuel Record</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `,
+            // Maintenance form
+            maintenance: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'maintenance')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" name="date" required value="${item?.date || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Vehicle</label>
+                            <select class="form-control" name="vehicle_id" required>
+                                ${this.getVehicleOptions(item?.vehicle_id)}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Maintenance Type</label>
+                            <select class="form-control" name="type" required>
+                                <option value="Routine Service" ${item?.type === 'Routine Service' ? 'selected' : ''}>Routine Service</option>
+                                <option value="Repair" ${item?.type === 'Repair' ? 'selected' : ''}>Repair</option>
+                                <option value="Tire Replacement" ${item?.type === 'Tire Replacement' ? 'selected' : ''}>Tire Replacement</option>
+                                <option value="Brake Service" ${item?.type === 'Brake Service' ? 'selected' : ''}>Brake Service</option>
+                                <option value="Engine Work" ${item?.type === 'Engine Work' ? 'selected' : ''}>Engine Work</option>
+                                <option value="Other" ${item?.type === 'Other' ? 'selected' : ''}>Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-control" name="status" required>
+                                <option value="scheduled" ${item?.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                                <option value="in-progress" ${item?.status === 'in-progress' ? 'selected' : ''}>In Progress</option>
+                                <option value="completed" ${item?.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                <option value="cancelled" ${item?.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3" required>${item?.description || ''}</textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Cost (KSh)</label>
+                            <input type="number" class="form-control" name="cost" step="0.01" required value="${item?.cost || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Odometer Reading</label>
+                            <input type="number" class="form-control" name="mileage" value="${item?.mileage || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Service Provider</label>
+                        <input type="text" class="form-control" name="service_provider" value="${item?.service_provider || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Next Service Due</label>
+                        <input type="date" class="form-control" name="next_service_due" value="${item?.next_service_due || ''}">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Maintenance Record</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `,
+
+            // Insurance form
+            insurance: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'insurance')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Vehicle</label>
+                        <select class="form-control" name="vehicle_id" required>
+                            ${this.getVehicleOptions(item?.vehicle_id)}
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Policy Number</label>
+                            <input type="text" class="form-control" name="policy_number" required value="${item?.policy_number || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Insurance Provider</label>
+                            <input type="text" class="form-control" name="provider" required value="${item?.provider || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-control" name="start_date" required value="${item?.start_date || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-control" name="end_date" required value="${item?.end_date || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Premium Amount (KSh)</label>
+                            <input type="number" class="form-control" name="premium_amount" step="0.01" required value="${item?.premium_amount || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Coverage Type</label>
+                            <select class="form-control" name="coverage_type" required>
+                                <option value="Comprehensive" ${item?.coverage_type === 'Comprehensive' ? 'selected' : ''}>Comprehensive</option>
+                                <option value="Third Party" ${item?.coverage_type === 'Third Party' ? 'selected' : ''}>Third Party</option>
+                                <option value="Third Party Fire & Theft" ${item?.coverage_type === 'Third Party Fire & Theft' ? 'selected' : ''}>Third Party Fire & Theft</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-control" name="status" required>
+                            <option value="active" ${item?.status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="expired" ${item?.status === 'expired' ? 'selected' : ''}>Expired</option>
+                            <option value="cancelled" ${item?.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2">${item?.notes || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Insurance Record</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `,
+
+            // Attendance form
+            attendance: `
+                <form id="modalForm" onsubmit="app.saveItem(event, 'attendance')">
+                    ${id ? `<input type="hidden" name="id" value="${id}">` : ''}
+                    <div class="form-group">
+                        <label class="form-label">Driver</label>
+                        <select class="form-control" name="driver_id" required>
+                            ${this.getDriverOptions(item?.driver_id)}
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" name="date" required value="${item?.date || new Date().toISOString().split('T')[0]}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-control" name="status" required>
+                                <option value="present" ${item?.status === 'present' ? 'selected' : ''}>Present</option>
+                                <option value="absent" ${item?.status === 'absent' ? 'selected' : ''}>Absent</option>
+                                <option value="late" ${item?.status === 'late' ? 'selected' : ''}>Late</option>
+                                <option value="sick" ${item?.status === 'sick' ? 'selected' : ''}>Sick Leave</option>
+                                <option value="vacation" ${item?.status === 'vacation' ? 'selected' : ''}>Vacation</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Check In Time</label>
+                            <input type="time" class="form-control" name="check_in" value="${item?.check_in || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Check Out Time</label>
+                            <input type="time" class="form-control" name="check_out" value="${item?.check_out || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hours Worked</label>
+                        <input type="number" class="form-control" name="hours_worked" step="0.1" value="${item?.hours_worked || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2">${item?.notes || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-success">Save Attendance Record</button>
+                        <button type="button" class="btn btn-danger" onclick="app.closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `
+        };
+        
+        return forms[type] || '<p>Form not implemented yet.</p>';
+    }
+    
+    getVehicleOptions(selectedId = null) {
+        return this.data.vehicles
+            .filter(v => v.status === 'active')
+            .map(v => `<option value="${v.id}" ${selectedId === v.id ? 'selected' : ''}>${v.vehicle_id} - ${v.make} ${v.model}</option>`)
+            .join('');
+    }
+    
+    getDriverOptions(selectedId = null) {
+        return this.data.driver
+            .filter(d => d.status === 'active')
+            .map(d => `<option value="${d.id}" ${selectedId === d.id ? 'selected' : ''}>${d.name}</option>`)
+            .join('');
+    }
+    
+    getRouteOptions(selectedId = null) {
+        return this.data.routes
+            .map(r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${r.name}</option>`)
+            .join('');
+    }
+    
+    getMaterialOptions(selectedId = null) {
+        return this.data.materials
+            .map(m => `<option value="${m.id}" ${selectedId === m.id ? 'selected' : ''}>${m.name}</option>`)
+            .join('');
+    }
+    
+    // Enhanced saveItem method with vehicle validation fix
+    async saveItem(event, type) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const item = {};
+        let isEdit = false;
+        let id = null;
+
+        for (let [key, value] of formData.entries()) {
+            if (key === 'id') {
+                id = parseInt(value);
+                isEdit = true;
+                continue;
+            }
+            
+            // Skip empty values
+            if (!value || value.trim() === '') {
+                continue;
+            }
+            
+            // Parse numeric fields
+            if (key === 'vehicle_id' || key === 'driver_id' || key === 'route_id' || 
+                key === 'material_id' || key === 'category_id') {
+                item[key] = parseInt(value);
+            } 
+            else if (key === 'trips' || key === 'tonnage' || key === 'rate_per_unit' || 
+                     key === 'fuel_cost' || key === 'distance_km' || key === 'base_rate' || 
+                     key === 'amount' || key === 'liters' || key === 'rate_per_liter' || 
+                     key === 'total_cost' || key === 'odometer' || key === 'cost' || 
+                     key === 'premium_amount' || key === 'mileage') {
+                item[key] = parseFloat(value);
+            } 
+            else {
+                item[key] = value.trim();
+            }
+        }
+
+        // Specific validation for vehicles
+        if (type === 'vehicle') {
+            if (!item.vehicle_id || item.vehicle_id.trim() === '') {
+                this.showNotification('Vehicle ID is required and cannot be empty', 'error');
+                return;
+            }
+            if (!item.make || item.make.trim() === '') {
+                this.showNotification('Vehicle make is required', 'error');
+                return;
+            }
+            if (!item.model || item.model.trim() === '') {
+                this.showNotification('Vehicle model is required', 'error');
+                return;
+            }
+            if (!item.status) {
+                this.showNotification('Vehicle status is required', 'error');
+                return;
+            }
+
+            // Check for duplicate vehicle_id (only for new vehicles)
+            if (!isEdit) {
+                const existingVehicle = this.data.vehicles.find(v => 
+                    v.vehicle_id.toLowerCase() === item.vehicle_id.toLowerCase()
+                );
+                if (existingVehicle) {
+                    this.showNotification('A vehicle with this ID already exists', 'error');
+                    return;
+                }
+            }
+        }
+
+        // Additional validation for operations
+        if (type === 'operation') {
+            if (!item.vehicle_id) {
+                this.showNotification('Please select a vehicle', 'error');
+                return;
+            }
+            if (!item.driver_id) {
+                this.showNotification('Please select a driver', 'error');
+                return;
+            }
+            if (!item.route_id) {
+                this.showNotification('Please select a route', 'error');
+                return;
+            }
+            if (!item.material_id) {
+                this.showNotification('Please select a material', 'error');
+                return;
+            }
+        }
+
+        try {
+            let result;
+            const table = type === 'driver' ? 'driver' : type + 's';
+            
+            if (isEdit) {
+                result = await this.updateData(table, id, item);
+                this.showNotification(`${type} updated successfully!`, 'success');
+            } else {
+                // Add created_by reference for audit
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (user) item.created_by = user.id;
+                
+                result = await this.insertData(table, item);
+                this.showNotification(`${type} created successfully!`, 'success');
+            }
+
+            // Reload data
+            await this.loadDataByType(type);
+            this.updateDashboard();
+            this.updateDataStats();
+            this.closeModal();
+        } catch (error) {
+            console.error('Error saving item:', error);
+            
+            // Handle specific database constraint errors
+            if (error.code === '23502') {
+                this.showNotification('Required field is missing. Please fill all required fields.', 'error');
+            } else if (error.code === '23505') {
+                this.showNotification('This record already exists. Please use a different identifier.', 'error');
+            } else {
+                this.showNotification(`Failed to save ${type}: ${error.message}`, 'error');
+            }
+        }
+    }
+    
+    editItem(type, id) {
+        this.openAddModal(type, id);
+    }
+    
+    async deleteItem(collection, id) {
+        if (!confirm('Are you sure you want to delete this item?')) return;
+        
+        try {
+            await this.deleteData(collection, id);
+            
+            // Remove from local data
+            const index = this.data[collection].findIndex(item => item.id === id);
+            if (index !== -1) {
+                this.data[collection].splice(index, -1);
+            }
+            
+            // Update UI
+            await this.loadDataByType(collection.slice(0, -1)); // Remove 's' from collection name
+            this.updateDashboard();
+            this.updateDataStats();
+            this.showNotification('Item deleted successfully!', 'success');
+        } catch (error) {
+            console.error('Error deleting item:', error);
+            this.showNotification('Failed to delete item', 'error');
+        }
+    }
+    
+    async syncData() {
+        this.showNotification('Syncing with database...', 'info');
+        document.getElementById('syncStatus').innerHTML = '<i class="fas fa-sync fa-spin"></i> Syncing';
+        document.getElementById('syncStatus').className = 'status-badge badge-syncing';
+        
+        try {
+            await this.loadAllData();
+            this.updateDashboard();
+            this.updateDataStats();
+            
+            document.getElementById('syncStatus').innerHTML = '<i class="fas fa-sync"></i> Synced';
+            document.getElementById('syncStatus').className = 'status-badge badge-online';
+            this.showNotification('Data synchronized successfully!', 'success');
+        } catch (error) {
+            document.getElementById('syncStatus').innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
+            document.getElementById('syncStatus').className = 'status-badge badge-offline';
+            this.showNotification('Sync failed', 'error');
+        }
+    }
+    
+    async saveSettings() {
+        try {
+            const companyName = document.getElementById('companyName').value;
+            const currency = document.getElementById('defaultCurrency').value;
+            const dateFormat = document.getElementById('dateFormat').value;
+            
+            this.data.settings = { companyName, currency, dateFormat };
+            
+            // Save settings to Supabase
+            await this.upsertData('settings', { id: 1, ...this.data.settings });
+            
+            this.showNotification('Settings saved successfully!', 'success');
+        } catch (error) {
+            this.showNotification('Failed to save settings', 'error');
+        }
+    }
+    
+    async clearAllData() {
+        if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) return;
+        
+        this.setLoading(true);
+        try {
+            // Delete all data from Supabase tables
+            const tables = ['operations', 'expenses', 'maintenance', 'insurance', 'attendance', 'fuel'];
+            
+            for (const table of tables) {
+                const { error } = await supabaseClient
+                    .from(table)
+                    .delete()
+                    .neq('id', 0); // Delete all records
+                
+                if (error) throw error;
+            }
+            
+            // Clear local data
+            this.data.operations = [];
+            this.data.expenses = [];
+            this.data.maintenance = [];
+            this.data.insurance = [];
+            this.data.attendance = [];
+            this.data.fuel = [];
+            
+            // Update UI
+            this.updateOperationsTable();
+            this.updateExpensesTable();
+            this.updateMaintenanceTable();
+            this.updateInsuranceTable();
+            this.updateAttendanceTable();
+            this.updateFuelTable();
+            this.updateDashboard();
+            this.updateDataStats();
+            
+            this.showNotification('All data cleared!', 'success');
+        } catch (error) {
+            console.error('Error clearing data:', error);
+            this.showNotification('Failed to clear data', 'error');
+        } finally {
+            this.setLoading(false);
+        }
+    }
+    
+    async exportData() {
+        try {
+            // Get fresh data from Supabase
+            const exportData = {
+                vehicles: await this.fetchData('vehicles'),
+                driver: await this.fetchData('driver'),
+                materials: await this.fetchData('materials'),
+                routes: await this.fetchData('routes'),
+                operations: await this.fetchData('operations'),
+                expenses: await this.fetchData('expenses'),
+                maintenance: await this.fetchData('maintenance'),
+                insurance: await this.fetchData('insurance'),
+                attendance: await this.fetchData('attendance'),
+                fuel: await this.fetchData('fuel'),
+                settings: this.data.settings,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `fleetpro-data-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            this.showNotification('Data exported successfully!', 'success');
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showNotification('Failed to export data', 'error');
+        }
+    }
+    
+    showNotification(message, type = 'info') {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.style.display = 'block';
+        
+        // Set styling based on type
+        const styles = {
+            success: { bg: '#dcfce7', color: '#15803d', border: '#22c55e' },
+            error: { bg: '#fee2e2', color: '#b91c1c', border: '#ef4444' },
+            warning: { bg: '#fef9c3', color: '#a16207', border: '#f59e0b' },
+            info: { bg: '#dbeafe', color: '#1e40af', border: '#3b82f6' }
+        };
+        
+        const style = styles[type];
+        notification.style.backgroundColor = style.bg;
+        notification.style.color = style.color;
+        notification.style.borderLeft = `4px solid ${style.border}`;
+        
+        // Auto hide after 4 seconds
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 4000);
+    }
+    
+    initCharts() {
+        // Revenue vs Expenses Chart
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        this.charts.revenue = new Chart(revenueCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                datasets: [
+                    {
+                        label: 'Revenue (KSh)',
+                        data: [285000, 320000, 295000, 345000],
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Expenses (KSh)',
+                        data: [82000, 95000, 78000, 92500],
+                        backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'KSh ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Utilization Chart
+        const utilCtx = document.getElementById('utilizationChart').getContext('2d');
+        this.charts.utilization = new Chart(utilCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['KBX-123Y', 'KCR-456Z', 'KBT-789X', 'KCA-321W'],
+                datasets: [{
+                    data: [38, 28, 22, 12],
+                    backgroundColor: [
+                        'rgba(37, 99, 235, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                        'rgba(239, 68, 68, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(37, 99, 235, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(245, 158, 11, 1)',
+                        'rgba(239, 68, 68, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.raw + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async filterOperationsByDateRange(startDate, endDate) {
+        try {
+            let query = supabaseClient.from('operations').select('*');
+            
+            if (startDate) {
+                query = query.gte('operation_date', startDate);
+            }
+            if (endDate) {
+                query = query.lte('operation_date', endDate);
+            }
+            
+            const { data, error } = await query.order('operation_date', { ascending: false });
+            
+            if (error) throw error;
+            
+            this.data.operations = data || [];
+            this.updateOperationsTable();
+            this.updateDashboard();
+        } catch (error) {
+            console.error('Error filtering operations:', error);
+            this.showNotification('Failed to filter operations', 'error');
+        }
+    }
+
+    async filterVehiclesByStatus(status) {
+        try {
+            let query = supabaseClient.from('vehicles').select('*');
+            
+            if (status) {
+                query = query.eq('status', status);
+            }
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            
+            this.data.vehicles = data || [];
+            this.updateVehiclesTable();
+        } catch (error) {
+            console.error('Error filtering vehicles:', error);
+            this.showNotification('Failed to filter vehicles', 'error');
+        }
+    }
+
+    async filterDriversByStatus(status) {
+        try {
+            let query = supabaseClient.from('driver').select('*');
+            
+            if (status) {
+                query = query.eq('status', status);
+            }
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            
+            this.data.driver = data || [];
+            this.updateDriverTable();
+        } catch (error) {
+            console.error('Error filtering driver:', error);
+            this.showNotification('Failed to filter driver', 'error');
+        }
+    }
+
+    async loadDataByType(type) {
+        switch(type) {
+            case 'vehicle': await this.loadVehicles(); break;
+            case 'driver': await this.loadDriver(); break;
+            case 'material': await this.loadMaterials(); break;
+            case 'route': await this.loadRoutes(); break;
+            case 'operation': await this.loadOperations(); break;
+            case 'expense': await this.loadExpenses(); break;
+            case 'maintenance': await this.loadMaintenance(); break;
+            case 'insurance': await this.loadInsurance(); break;
+            case 'fuel': await this.loadFuel(); break;
+            case 'attendance': await this.loadAttendance(); break;
+        }
+    }
+}
+
+// Initialize the application
+let app;
+document.addEventListener('DOMContentLoaded', function() {
+    app = new FleetProApp();
+});Sh ${route.base_rate.toLocaleString()}</td>
                     <td>${route.created_at ? new Date(route.created_at).toLocaleDateString() : 'N/A'}</td>
                     <td>
                         <button class="btn btn-primary btn-sm" onclick="app.editItem('route', ${route.id})">Edit</button>
@@ -1923,3 +3031,4 @@ async insertData(table, data) {
         throw error;
     }
 }
+
