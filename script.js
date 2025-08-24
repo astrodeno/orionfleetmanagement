@@ -367,39 +367,7 @@ class FleetProApp {
                 this.switchSection(e.currentTarget.getAttribute('data-section'));
             });
         });
-        // Add these functions to your FleetProApp class or update existing ones
-
-setupEventListeners() {
-    // Navigation - Make sure this targets the correct elements
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const section = e.currentTarget.getAttribute('data-section');
-            console.log('Switching to section:', section); // Debug log
-            this.switchSection(section);
-        });
-    });
-    
-    // Mobile sidebar toggle - Make sure the toggle works
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebar = document.getElementById('sidebar');
-    
-    if (sidebarToggle && sidebar) {
-        sidebarToggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            console.log('Toggling sidebar'); // Debug log
-            sidebar.classList.toggle('active');
-        });
-    }
-    
-    // Click outside sidebar to close (for mobile)
-    document.addEventListener('click', (e) => {
-        if (sidebar && sidebar.classList.contains('active')) {
-            if (!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
-                sidebar.classList.remove('active');
-            }
-        }
-    });
+        
         // Mobile sidebar toggle
         document.getElementById('sidebarToggle').addEventListener('click', () => {
             document.getElementById('sidebar').classList.toggle('active');
@@ -1355,7 +1323,6 @@ setupEventListeners() {
         try {
             let result;
            const table = type === 'driver' ? 'driver' : type + 's';
-console.log('Table name being used:', table, 'for type:', type);
             
             if (isEdit) {
                 result = await this.updateData(table, id, item);
@@ -1364,10 +1331,7 @@ console.log('Table name being used:', table, 'for type:', type);
                 // Add created_by reference for audit
                 const { data: { user } } = await supabaseClient.auth.getUser();
                 if (user) item.created_by = user.id;
-                } catch (authError) {
-                // Continue without user ID if auth fails
-                console.log('No authenticated user found, continuing without created_by');
-            }
+                
                 result = await this.insertData(table, item);
                 this.showNotification(`${type} created successfully!`, 'success');
             }
@@ -1717,8 +1681,3 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
-
-
-
-
-
