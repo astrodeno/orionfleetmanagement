@@ -2789,3 +2789,4 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
+
