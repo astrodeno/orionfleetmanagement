@@ -1,5 +1,5 @@
 // Supabase configuration
-const SUPABASE_URL = 'https://ozbgaobhvgqeofecxrku.supabase.co';
+const SUPABASE_URL = 'https://nlthfqsezaugutrvnqut.supabase.co';https://ozbgaobhvgqeofecxrku.supabase.co
 const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96Ymdhb2JodmdxZW9mZWN4cmt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5NTk2NDIsImV4cCI6MjA2OTUzNTY0Mn0.ctl8sBukpXRAjjqIXPNEndlK73dMfLUO4g1vUZn-OJE';
 
 // Initialize Supabase client
@@ -2789,4 +2789,5 @@ let app;
 document.addEventListener('DOMContentLoaded', function() {
     app = new FleetProApp();
 });
+
 
